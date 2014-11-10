@@ -87,27 +87,27 @@ void hello_triangle (GLFWwindow* window)
 	::glBufferData (GL_ARRAY_BUFFER, sizeof (points), points, GL_STATIC_DRAW);
 	::glVertexAttribPointer (0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
 
-	GLuint vs = ::glCreateShader (GL_VERTEX_SHADER);
+	GLuint vertex_shader = ::glCreateShader (GL_VERTEX_SHADER);
 	{
 		const auto vs_source = read_file ("triangle.vert");
 		const char* source [] = {vs_source.data ()};
-		::glShaderSource (vs, 1, source, NULL);
-		::glCompileShader (vs);
-		check_shader (vs);
+		::glShaderSource (vertex_shader, 1, source, NULL);
+		::glCompileShader (vertex_shader);
+		check_shader (vertex_shader);
 	}
 
-	GLuint fs = ::glCreateShader (GL_FRAGMENT_SHADER);
+	GLuint fragment_shader = ::glCreateShader (GL_FRAGMENT_SHADER);
 	{
 		const auto fs_source = read_file ("triangle.frag");
 		const char* source [] = {fs_source.data ()};
-		::glShaderSource (fs, 1, source, NULL);
-		::glCompileShader (fs);
-		check_shader (fs);
+		::glShaderSource (fragment_shader, 1, source, NULL);
+		::glCompileShader (fragment_shader);
+		check_shader (fragment_shader);
 	}
 
 	GLuint program = ::glCreateProgram ();
-	::glAttachShader (program, vs);
-	::glAttachShader (program, fs);
+	::glAttachShader (program, vertex_shader);
+	::glAttachShader (program, fragment_shader);
 	::glLinkProgram (program);
 	check_program (program);
 
