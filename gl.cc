@@ -24,6 +24,50 @@ void check_gl (const std::string& where)
 	error ("GL (", where, "): ", es);
 }
 
+void check_shader (GLuint shader)
+{
+	GLint compile_status = GL_FALSE;
+	::glGetShaderiv (shader, GL_COMPILE_STATUS, &compile_status);
+
+	if (compile_status != GL_TRUE)
+	{
+		GLint log_length = 0;
+		::glGetShaderiv (shader, GL_INFO_LOG_LENGTH, &log_length);
+
+		if (log_length != 0)
+		{
+			std::string compile_log;
+			compile_log.resize (log_length);
+			::glGetShaderInfoLog (shader, log_length, &log_length, &(compile_log [0]));
+			compile_log.resize (log_length);
+			log (compile_log);
+		}
+		error ("Compiling failed");
+	}
+}
+
+void check_program (GLuint program)
+{
+	GLint link_status = GL_FALSE;
+	::glGetProgramiv (program, GL_LINK_STATUS, &link_status);
+
+	if (link_status != GL_TRUE)
+	{
+		GLint log_length = 0;
+		::glGetProgramiv (program, GL_INFO_LOG_LENGTH, &log_length);
+
+		if (log_length != 0)
+		{
+			std::string link_log;
+			link_log.resize (log_length);
+			::glGetProgramInfoLog (program, log_length, &log_length, &(link_log [0]));
+			link_log.resize (log_length);
+			log (link_log);
+		}
+		error ("Linking failed");
+	}
+}
+
 void hello_triangle (GLFWwindow* window)
 {
 	const float points [] = {
@@ -36,14 +80,12 @@ void hello_triangle (GLFWwindow* window)
 	::glGenVertexArrays (1, &vertex_attributes);
 	::glBindVertexArray (vertex_attributes);
 	::glEnableVertexAttribArray (0);
-	check_gl ("VAO");
 
 	GLuint vertex_buffer = 0;
 	::glGenBuffers (1, &vertex_buffer);
 	::glBindBuffer (GL_ARRAY_BUFFER, vertex_buffer);
 	::glBufferData (GL_ARRAY_BUFFER, sizeof (points), points, GL_STATIC_DRAW);
 	::glVertexAttribPointer (0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
-	check_gl ("VBO");
 
 	GLuint vs = ::glCreateShader (GL_VERTEX_SHADER);
 	{
@@ -51,8 +93,8 @@ void hello_triangle (GLFWwindow* window)
 		const char* source [] = {vs_source.data ()};
 		::glShaderSource (vs, 1, source, NULL);
 		::glCompileShader (vs);
+		check_shader (vs);
 	}
-	check_gl ("VS");
 
 	GLuint fs = ::glCreateShader (GL_FRAGMENT_SHADER);
 	{
@@ -60,24 +102,30 @@ void hello_triangle (GLFWwindow* window)
 		const char* source [] = {fs_source.data ()};
 		::glShaderSource (fs, 1, source, NULL);
 		::glCompileShader (fs);
+		check_shader (fs);
 	}
-	check_gl ("FS");
 
-	GLuint shader = ::glCreateProgram ();
-	::glAttachShader (shader, vs);
-	::glAttachShader (shader, fs);
-	::glLinkProgram (shader);
-	check_gl ("Compile");
+	GLuint program = ::glCreateProgram ();
+	::glAttachShader (program, vs);
+	::glAttachShader (program, fs);
+	::glLinkProgram (program);
+	check_program (program);
+
+	::glUseProgram (program);
+	check_gl ("Use Program");
+	::glBindVertexArray (vertex_attributes);
+	check_gl ("Bind Vertex Array");
 
 	while (!::glfwWindowShouldClose (window))
 	{
 		::glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		check_gl ("Clear");
-		::glUseProgram (shader);
-		::glBindVertexArray (vertex_attributes);
 		::glDrawArrays (GL_TRIANGLES, 0, 3);
+		check_gl ("Draw Arrays");
 		::glfwPollEvents ();
+		check_gl ("Poll Events");
 		::glfwSwapBuffers (window);
+		check_gl ("Swap Buffers");
 	}
 }
 
