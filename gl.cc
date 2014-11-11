@@ -3,6 +3,9 @@
 #include "glfw_wrappers.hh"
 #include "glew_wrappers.hh"
 #include "read_file.hh"
+#include <cmath>
+#include <thread>
+#include <chrono>
 
 void gl_info ()
 {
@@ -70,11 +73,17 @@ void check_program (GLuint program)
 
 void hello_triangle (GLFWwindow* window)
 {
-	const float points [] = {
-		0.0f,  0.5f,  0.0f,
-		0.5f, -0.5f,  0.0f,
-		-0.5f, -0.5f,  0.0f
+	#define N 50
+	float points [3 * (1 + N + 1)] = {
+		0.0f,  0.0f,  0.0f
 	};
+	for (int i = 0; i < N + 1; ++i)
+	{
+		float t = (i * 2*M_PI) / N;
+		points [3 * (i + 1) + 0] = std::cos (t);
+		points [3 * (i + 1) + 1] = std::sin (t);
+		points [3 * (i + 1) + 2] = 0.0f;
+	}
 
 	GLuint vertex_attributes = 0;
 	::glGenVertexArrays (1, &vertex_attributes);
@@ -118,21 +127,23 @@ void hello_triangle (GLFWwindow* window)
 
 	while (!::glfwWindowShouldClose (window))
 	{
+		auto time = std::chrono::steady_clock::now ();
 		::glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		check_gl ("Clear");
-		::glDrawArrays (GL_TRIANGLES, 0, 3);
+		::glDrawArrays (GL_TRIANGLE_FAN, 0, 1 + N + 1);
 		check_gl ("Draw Arrays");
 		::glfwPollEvents ();
 		check_gl ("Poll Events");
 		::glfwSwapBuffers (window);
 		check_gl ("Swap Buffers");
+		std::this_thread::sleep_until (time + std::chrono::duration <int, std::ratio <1, 60>> (1));
 	}
 }
 
 int main ()
 {
 	glfw_manager glfw;
-	glfw_window window (640, 480, "Hello Triangle", NULL, NULL);
+	glfw_window window (500, 500, "Hello Triangle", NULL, NULL);
 	::glfwMakeContextCurrent (window);
 	glew_manager glew;
 
