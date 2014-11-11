@@ -12,7 +12,7 @@ float vector_norm (vec2 x)
 vec2 unit_vector2 (vec2 x)
 {
 	float xnorm = vector_norm (x);
-	vec2 result = {x.x / xnorm, x.y / xnorm};
+	vec2 result = vec2 (x.x / xnorm, x.y / xnorm);
 	return result;
 }
 
