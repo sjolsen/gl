@@ -173,7 +173,7 @@ void hello_texture (GLFWwindow* window)
 int main ()
 {
 	glfw_manager glfw;
-	glfw_window window (512, 512, "Hello Triangle", NULL, NULL);
+	glfw_window window (512, 512, "Hello Texture", NULL, NULL);
 	::glfwMakeContextCurrent (window);
 	glew_manager glew;
 
