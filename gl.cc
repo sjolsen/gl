@@ -71,19 +71,36 @@ void check_program (GLuint program)
 	}
 }
 
-void hello_triangle (GLFWwindow* window)
+struct RGBA
 {
-	#define N 50
-	float points [3 * (1 + N + 1)] = {
-		0.0f,  0.0f,  0.0f
+	std::uint8_t red;
+	std::uint8_t green;
+	std::uint8_t blue;
+	std::uint8_t alpha;
+};
+
+RGBA texdata [512] [512];
+void init_texdata ()
+{
+	for (int row = 0; row < 512; ++row)
+		for (int col = 0; col < 512; ++col)
+			texdata [row] [col] = {
+				// static_cast <std::uint8_t> (col),
+				// static_cast <std::uint8_t> (row),
+				// static_cast <std::uint8_t> ((row + col) / 2),
+				// static_cast <std::uint8_t> (0xFF)
+				0xFF, 0xFF, 0xFF, 0xFF
+			};
+}
+
+void hello_texture (GLFWwindow* window)
+{
+	float points [3 * 4] = {
+		-1.0f,  -1.0f, // Lower left
+		 1.0f,  -1.0f, // Lower right
+		 1.0f,   1.0f, // Upper right
+		-1.0f,   1.0f  // Upper left
 	};
-	for (int i = 0; i < N + 1; ++i)
-	{
-		float t = (i * 2*M_PI) / N;
-		points [3 * (i + 1) + 0] = std::cos (t);
-		points [3 * (i + 1) + 1] = std::sin (t);
-		points [3 * (i + 1) + 2] = 0.0f;
-	}
 
 	GLuint vertex_attributes = 0;
 	::glGenVertexArrays (1, &vertex_attributes);
@@ -94,11 +111,11 @@ void hello_triangle (GLFWwindow* window)
 	::glGenBuffers (1, &vertex_buffer);
 	::glBindBuffer (GL_ARRAY_BUFFER, vertex_buffer);
 	::glBufferData (GL_ARRAY_BUFFER, sizeof (points), points, GL_STATIC_DRAW);
-	::glVertexAttribPointer (0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+	::glVertexAttribPointer (0, 2, GL_FLOAT, GL_FALSE, 0, NULL);
 
 	GLuint vertex_shader = ::glCreateShader (GL_VERTEX_SHADER);
 	{
-		const auto vs_source = read_file ("triangle.vert");
+		const auto vs_source = read_file ("flat.vert");
 		const char* source [] = {vs_source.data ()};
 		::glShaderSource (vertex_shader, 1, source, NULL);
 		::glCompileShader (vertex_shader);
@@ -107,7 +124,7 @@ void hello_triangle (GLFWwindow* window)
 
 	GLuint fragment_shader = ::glCreateShader (GL_FRAGMENT_SHADER);
 	{
-		const auto fs_source = read_file ("triangle.frag");
+		const auto fs_source = read_file ("flat.frag");
 		const char* source [] = {fs_source.data ()};
 		::glShaderSource (fragment_shader, 1, source, NULL);
 		::glCompileShader (fragment_shader);
@@ -121,16 +138,29 @@ void hello_triangle (GLFWwindow* window)
 	check_program (program);
 
 	::glUseProgram (program);
-	check_gl ("Use Program");
 	::glBindVertexArray (vertex_attributes);
-	check_gl ("Bind Vertex Array");
+
+	init_texdata ();
+	GLuint texname = 0;
+	::glGenTextures (1, &texname);
+	check_gl ("GenTextures");
+	::glBindTexture (GL_TEXTURE_2D, texname);
+	check_gl ("BindTexture");
+	::glTexImage2D (GL_TEXTURE_2D, 0, GL_RGBA, 512, 512, 0, GL_RGBA,
+	                GL_UNSIGNED_INT_8_8_8_8, texdata);
+	check_gl ("TexImage2D");
+
+	GLint texmap = ::glGetUniformLocation (program, "texmap");
+	check_gl ("GetUniformLocation");
+	::glUniform1i (texmap, texname);
+	check_gl ("Uniform1i");
 
 	while (!::glfwWindowShouldClose (window))
 	{
 		auto time = std::chrono::steady_clock::now ();
 		::glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		check_gl ("Clear");
-		::glDrawArrays (GL_TRIANGLE_FAN, 0, 1 + N + 1);
+		::glDrawArrays (GL_TRIANGLE_FAN, 0, 4);
 		check_gl ("Draw Arrays");
 		::glfwPollEvents ();
 		check_gl ("Poll Events");
@@ -143,18 +173,13 @@ void hello_triangle (GLFWwindow* window)
 int main ()
 {
 	glfw_manager glfw;
-	glfw_window window (500, 500, "Hello Triangle", NULL, NULL);
+	glfw_window window (512, 512, "Hello Triangle", NULL, NULL);
 	::glfwMakeContextCurrent (window);
 	glew_manager glew;
 
 	gl_info ();
-
-	// tell GL to only draw onto a pixel if the shape is closer to the viewer
-	::glEnable (GL_DEPTH_TEST);
-	::glDepthFunc (GL_LESS);
 	check_gl ("Init");
-
-	hello_triangle (window);
+	hello_texture (window);
 
 	return EXIT_SUCCESS;
 }

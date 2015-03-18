@@ -4,4 +4,4 @@ test: gl
 	@./gl
 
 gl: gl.cc glfw_wrappers.hh glew_wrappers.hh log.hh read_file.hh
-	g++ -std=c++14 $< -o $@ `pkg-config --libs --cflags glfw3 glew`
+	g++ -std=c++14 ${CXXFLAGS} $< -o $@ `pkg-config --libs --cflags glfw3 glew`
