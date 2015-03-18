@@ -148,7 +148,7 @@ void hello_texture (GLFWwindow* window)
 	::glBindTexture (GL_TEXTURE_2D, texname);
 	check_gl ("BindTexture");
 	::glTexImage2D (GL_TEXTURE_2D, 0, GL_RGBA, 512, 512, 0, GL_RGBA,
-	                GL_UNSIGNED_INT_8_8_8_8, texdata);
+	                GL_UNSIGNED_BYTE, texdata);
 	check_gl ("TexImage2D");
 	::glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	check_gl ("TexParameter GL_TEXTURE_MIN_FILTER");
