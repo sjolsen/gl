@@ -85,21 +85,20 @@ void init_texdata ()
 	for (int row = 0; row < 512; ++row)
 		for (int col = 0; col < 512; ++col)
 			texdata [row] [col] = {
-				// static_cast <std::uint8_t> (col),
-				// static_cast <std::uint8_t> (row),
-				// static_cast <std::uint8_t> ((row + col) / 2),
-				// static_cast <std::uint8_t> (0xFF)
-				0xFF, 0xFF, 0xFF, 0xFF
+				static_cast <std::uint8_t> (col),
+				static_cast <std::uint8_t> (row),
+				static_cast <std::uint8_t> ((row + col) / 2),
+				static_cast <std::uint8_t> (0xFF)
 			};
 }
 
 void hello_texture (GLFWwindow* window)
 {
 	float points [3 * 4] = {
-		-1.0f,  -1.0f, // Lower left
-		 1.0f,  -1.0f, // Lower right
-		 1.0f,   1.0f, // Upper right
-		-1.0f,   1.0f  // Upper left
+		-1.0f, -1.0f, // Lower left
+		 1.0f, -1.0f, // Lower right
+		 1.0f,  1.0f, // Upper right
+		-1.0f,  1.0f  // Upper left
 	};
 
 	GLuint vertex_attributes = 0;
@@ -144,15 +143,19 @@ void hello_texture (GLFWwindow* window)
 	GLuint texname = 0;
 	::glGenTextures (1, &texname);
 	check_gl ("GenTextures");
+	::glActiveTexture (GL_TEXTURE0);
+	check_gl ("ActiveTexture");
 	::glBindTexture (GL_TEXTURE_2D, texname);
 	check_gl ("BindTexture");
 	::glTexImage2D (GL_TEXTURE_2D, 0, GL_RGBA, 512, 512, 0, GL_RGBA,
 	                GL_UNSIGNED_INT_8_8_8_8, texdata);
 	check_gl ("TexImage2D");
+	::glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	check_gl ("TexParameter GL_TEXTURE_MIN_FILTER");
 
 	GLint texmap = ::glGetUniformLocation (program, "texmap");
 	check_gl ("GetUniformLocation");
-	::glUniform1i (texmap, texname);
+	::glUniform1i (texmap, 0);
 	check_gl ("Uniform1i");
 
 	while (!::glfwWindowShouldClose (window))
