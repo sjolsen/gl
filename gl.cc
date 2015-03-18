@@ -144,6 +144,9 @@ int main ()
 {
 	glfw_manager glfw;
 	glfw_window window (500, 500, "Hello Triangle", NULL, NULL);
+	::glfwSetWindowSizeCallback (window, [] (GLFWwindow*, int width, int height) {
+		::glViewport (0, 0, width, height);
+	});
 	::glfwMakeContextCurrent (window);
 	glew_manager glew;
 
