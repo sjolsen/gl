@@ -187,6 +187,9 @@ int main ()
 {
 	glfw_manager glfw;
 	glfw_window window (512, 512, "Hello Texture", NULL, NULL);
+	::glfwSetWindowSizeCallback (window, [] (GLFWwindow*, int width, int height) {
+		::glViewport (0, 0, width, height);
+	});
 	::glfwMakeContextCurrent (window);
 	glew_manager glew;
 
