@@ -85,9 +85,9 @@ void init_texdata ()
 	for (int row = 0; row < 512; ++row)
 		for (int col = 0; col < 512; ++col)
 			texdata [row] [col] = {
-				static_cast <std::uint8_t> (col),
-				static_cast <std::uint8_t> (row),
-				static_cast <std::uint8_t> ((row + col) / 2),
+				static_cast <std::uint8_t> (col / 2),
+				static_cast <std::uint8_t> (row / 2),
+				static_cast <std::uint8_t> (0),
 				static_cast <std::uint8_t> (0xFF)
 			};
 }
@@ -100,17 +100,27 @@ void hello_texture (GLFWwindow* window)
 		 1.0f,  1.0f, // Upper right
 		-1.0f,  1.0f  // Upper left
 	};
+	float texpoints [3 * 4] = {
+		0.0f, 0.0f, // Lower left
+		1.0f, 0.0f, // Lower right
+		1.0f, 1.0f, // Upper right
+		0.0f, 1.0f  // Upper left
+	};
 
 	GLuint vertex_attributes = 0;
 	::glGenVertexArrays (1, &vertex_attributes);
 	::glBindVertexArray (vertex_attributes);
 	::glEnableVertexAttribArray (0);
+	::glEnableVertexAttribArray (1);
 
-	GLuint vertex_buffer = 0;
-	::glGenBuffers (1, &vertex_buffer);
-	::glBindBuffer (GL_ARRAY_BUFFER, vertex_buffer);
+	GLuint vertex_buffers [2] = {};
+	::glGenBuffers (2, vertex_buffers);
+	::glBindBuffer (GL_ARRAY_BUFFER, vertex_buffers [0]);
 	::glBufferData (GL_ARRAY_BUFFER, sizeof (points), points, GL_STATIC_DRAW);
 	::glVertexAttribPointer (0, 2, GL_FLOAT, GL_FALSE, 0, NULL);
+	::glBindBuffer (GL_ARRAY_BUFFER, vertex_buffers [1]);
+	::glBufferData (GL_ARRAY_BUFFER, sizeof (texpoints), texpoints, GL_STATIC_DRAW);
+	::glVertexAttribPointer (1, 2, GL_FLOAT, GL_FALSE, 0, NULL);
 
 	GLuint vertex_shader = ::glCreateShader (GL_VERTEX_SHADER);
 	{
