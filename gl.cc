@@ -6,6 +6,10 @@
 #include <cmath>
 #include <thread>
 #include <chrono>
+#include <cstring>
+#include <random>
+
+#define N 512
 
 void gl_info ()
 {
@@ -71,25 +75,75 @@ void check_program (GLuint program)
 	}
 }
 
-struct RGBA
+union RGBA
 {
-	std::uint8_t red;
-	std::uint8_t green;
-	std::uint8_t blue;
-	std::uint8_t alpha;
+	struct {
+		std::uint8_t red;
+		std::uint8_t green;
+		std::uint8_t blue;
+		std::uint8_t alpha;
+	};
+	std::uint32_t value;
 };
 
-RGBA texdata [512] [512];
-void init_texdata ()
+bool lifestate [N] [N] = {};
+bool newlifestate [N] [N] = {};
+
+void init_life ()
 {
-	for (int row = 0; row < 512; ++row)
-		for (int col = 0; col < 512; ++col)
+	std::mt19937 gen {};
+	std::uniform_int_distribution <unsigned short> dist (0, 1);
+	for (int row = 0; row < N; ++row)
+		for (int col = 0; col < N; ++col)
+			lifestate [row] [col] = (dist (gen) != 0);
+}
+
+bool safe_state (int row, int col)
+{
+	while (row < 0) row += N;
+	while (col < 0) col += N;
+	row %= N;
+	col %= N;
+	return lifestate [row] [col];
+}
+
+void step_life ()
+{
+	for (int row = 0; row < N; ++row)
+		for (int col = 0; col < N; ++col)
+		{
+			int neighbours = 0;
+			if (safe_state (row - 1, col - 1)) ++neighbours;
+			if (safe_state (row - 1, col))     ++neighbours;
+			if (safe_state (row - 1, col + 1)) ++neighbours;
+			if (safe_state (row,     col - 1)) ++neighbours;
+			if (safe_state (row,     col + 1)) ++neighbours;
+			if (safe_state (row + 1, col - 1)) ++neighbours;
+			if (safe_state (row + 1, col))     ++neighbours;
+			if (safe_state (row + 1, col + 1)) ++neighbours;
+
+			if (lifestate [row] [col])
+				newlifestate [row] [col] = (neighbours == 2 || neighbours == 3);
+			else
+				newlifestate [row] [col] = (neighbours == 3);
+		}
+	memcpy (lifestate, newlifestate, sizeof (lifestate));
+}
+
+RGBA texdata [N] [N];
+void fill_texdata ()
+{
+	for (int row = 0; row < N; ++row)
+		for (int col = 0; col < N; ++col)
+		{
+			std::uint8_t value = lifestate [row] [col] ? 0 : 0xFF;
 			texdata [row] [col] = {
-				static_cast <std::uint8_t> (col / 2),
-				static_cast <std::uint8_t> (row / 2),
-				static_cast <std::uint8_t> (0),
+				value,
+				value,
+				value,
 				static_cast <std::uint8_t> (0xFF)
 			};
+		}
 }
 
 void hello_texture (GLFWwindow* window)
@@ -149,36 +203,27 @@ void hello_texture (GLFWwindow* window)
 	::glUseProgram (program);
 	::glBindVertexArray (vertex_attributes);
 
-	init_texdata ();
 	GLuint texname = 0;
 	::glGenTextures (1, &texname);
-	check_gl ("GenTextures");
 	::glActiveTexture (GL_TEXTURE0);
-	check_gl ("ActiveTexture");
 	::glBindTexture (GL_TEXTURE_2D, texname);
-	check_gl ("BindTexture");
-	::glTexImage2D (GL_TEXTURE_2D, 0, GL_RGBA, 512, 512, 0, GL_RGBA,
-	                GL_UNSIGNED_BYTE, texdata);
-	check_gl ("TexImage2D");
 	::glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	check_gl ("TexParameter GL_TEXTURE_MIN_FILTER");
 
 	GLint texmap = ::glGetUniformLocation (program, "texmap");
-	check_gl ("GetUniformLocation");
 	::glUniform1i (texmap, 0);
-	check_gl ("Uniform1i");
+
+	init_life ();
 
 	while (!::glfwWindowShouldClose (window))
 	{
 		auto time = std::chrono::steady_clock::now ();
+		fill_texdata ();
+		::glTexImage2D (GL_TEXTURE_2D, 0, GL_RGBA, N, N, 0, GL_RGBA, GL_UNSIGNED_BYTE, texdata);
 		::glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		check_gl ("Clear");
 		::glDrawArrays (GL_TRIANGLE_FAN, 0, 4);
-		check_gl ("Draw Arrays");
 		::glfwPollEvents ();
-		check_gl ("Poll Events");
 		::glfwSwapBuffers (window);
-		check_gl ("Swap Buffers");
+		step_life ();
 		std::this_thread::sleep_until (time + std::chrono::duration <int, std::ratio <1, 60>> (1));
 	}
 }
@@ -186,7 +231,7 @@ void hello_texture (GLFWwindow* window)
 int main ()
 {
 	glfw_manager glfw;
-	glfw_window window (512, 512, "Hello Texture", NULL, NULL);
+	glfw_window window (N, N, "Hello Texture", NULL, NULL);
 	::glfwSetWindowSizeCallback (window, [] (GLFWwindow*, int width, int height) {
 		::glViewport (0, 0, width, height);
 	});
