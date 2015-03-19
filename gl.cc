@@ -86,8 +86,8 @@ union RGBA
 	std::uint32_t value;
 };
 
-bool lifestate [N] [N] = {};
-bool newlifestate [N] [N] = {};
+RGBA texdata [N] [N];
+RGBA newtexdata [N] [N];
 
 void init_life ()
 {
@@ -95,16 +95,21 @@ void init_life ()
 	std::uniform_int_distribution <unsigned short> dist (0, 1);
 	for (int row = 0; row < N; ++row)
 		for (int col = 0; col < N; ++col)
-			lifestate [row] [col] = (dist (gen) != 0);
+		{
+			texdata [row] [col].red   = (dist (gen) == 0) ? 0x00 : 0xFF;
+			texdata [row] [col].green = (dist (gen) == 0) ? 0x00 : 0xFF;
+			texdata [row] [col].blue  = (dist (gen) == 0) ? 0x00 : 0xFF;
+			texdata [row] [col].alpha = 0xFF;
+		}
 }
 
-bool safe_state (int row, int col)
+RGBA safe_state (int row, int col)
 {
 	while (row < 0) row += N;
 	while (col < 0) col += N;
 	row %= N;
 	col %= N;
-	return lifestate [row] [col];
+	return texdata [row] [col];
 }
 
 void step_life ()
@@ -112,38 +117,36 @@ void step_life ()
 	for (int row = 0; row < N; ++row)
 		for (int col = 0; col < N; ++col)
 		{
-			int neighbours = 0;
-			if (safe_state (row - 1, col - 1)) ++neighbours;
-			if (safe_state (row - 1, col))     ++neighbours;
-			if (safe_state (row - 1, col + 1)) ++neighbours;
-			if (safe_state (row,     col - 1)) ++neighbours;
-			if (safe_state (row,     col + 1)) ++neighbours;
-			if (safe_state (row + 1, col - 1)) ++neighbours;
-			if (safe_state (row + 1, col))     ++neighbours;
-			if (safe_state (row + 1, col + 1)) ++neighbours;
+			std::uint16_t rweight = 0;
+			std::uint16_t gweight = 0;
+			std::uint16_t bweight = 0;
 
-			if (lifestate [row] [col])
-				newlifestate [row] [col] = (neighbours == 2 || neighbours == 3);
-			else
-				newlifestate [row] [col] = (neighbours == 3);
-		}
-	memcpy (lifestate, newlifestate, sizeof (lifestate));
-}
-
-RGBA texdata [N] [N];
-void fill_texdata ()
-{
-	for (int row = 0; row < N; ++row)
-		for (int col = 0; col < N; ++col)
-		{
-			std::uint8_t value = lifestate [row] [col] ? 0 : 0xFF;
-			texdata [row] [col] = {
-				value,
-				value,
-				value,
-				static_cast <std::uint8_t> (0xFF)
+			auto do_weight = [&] (int row, int col) {
+				auto state = safe_state (row, col);
+				if (state.red) ++rweight;
+				if (state.green) ++gweight;
+				if (state.blue) ++bweight;
 			};
+			do_weight (row - 1, col - 1);
+			do_weight (row - 1, col);
+			do_weight (row - 1, col + 1);
+			do_weight (row,     col - 1);
+			do_weight (row,     col + 1);
+			do_weight (row + 1, col - 1);
+			do_weight (row + 1, col);
+			do_weight (row + 1, col + 1);
+
+			auto do_update = [&] (std::uint8_t (RGBA::*color), std::uint16_t weight) {
+				if (texdata [row] [col].*color)
+				    newtexdata [row] [col].*color = (weight == 2 || weight == 3) ? 0xFF : 0x00;
+				else
+				    newtexdata [row] [col].*color = (weight == 3) ? 0xFF : 0x00;
+			};
+			do_update (&RGBA::red, rweight);
+			do_update (&RGBA::green, gweight);
+			do_update (&RGBA::blue, bweight);
 		}
+	memcpy (texdata, newtexdata, sizeof (texdata));
 }
 
 void hello_texture (GLFWwindow* window)
@@ -208,6 +211,7 @@ void hello_texture (GLFWwindow* window)
 	::glActiveTexture (GL_TEXTURE0);
 	::glBindTexture (GL_TEXTURE_2D, texname);
 	::glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	::glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
 	GLint texmap = ::glGetUniformLocation (program, "texmap");
 	::glUniform1i (texmap, 0);
@@ -217,7 +221,6 @@ void hello_texture (GLFWwindow* window)
 	while (!::glfwWindowShouldClose (window))
 	{
 		auto time = std::chrono::steady_clock::now ();
-		fill_texdata ();
 		::glTexImage2D (GL_TEXTURE_2D, 0, GL_RGBA, N, N, 0, GL_RGBA, GL_UNSIGNED_BYTE, texdata);
 		::glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		::glDrawArrays (GL_TRIANGLE_FAN, 0, 4);
