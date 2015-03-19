@@ -3,13 +3,13 @@
 #include "glfw_wrappers.hh"
 #include "glew_wrappers.hh"
 #include "read_file.hh"
+#include "life.hh"
 #include <cmath>
 #include <thread>
 #include <chrono>
-#include <cstring>
 #include <random>
 
-#define N 512
+enum { N = 512 };
 
 void gl_info ()
 {
@@ -75,19 +75,7 @@ void check_program (GLuint program)
 	}
 }
 
-union RGBA
-{
-	struct {
-		std::uint8_t red;
-		std::uint8_t green;
-		std::uint8_t blue;
-		std::uint8_t alpha;
-	};
-	std::uint32_t value;
-};
-
-RGBA texdata [N] [N];
-RGBA newtexdata [N] [N];
+RGB lifestate [2] [N] [N];
 
 void init_life ()
 {
@@ -96,57 +84,10 @@ void init_life ()
 	for (int row = 0; row < N; ++row)
 		for (int col = 0; col < N; ++col)
 		{
-			texdata [row] [col].red   = (dist (gen) == 0) ? 0x00 : 0xFF;
-			texdata [row] [col].green = (dist (gen) == 0) ? 0x00 : 0xFF;
-			texdata [row] [col].blue  = (dist (gen) == 0) ? 0x00 : 0xFF;
-			texdata [row] [col].alpha = 0xFF;
+			lifestate [0] [row] [col].red   = (dist (gen) == 0) ? 0x00 : 0xFF;
+			lifestate [0] [row] [col].green = (dist (gen) == 0) ? 0x00 : 0xFF;
+			lifestate [0] [row] [col].blue  = (dist (gen) == 0) ? 0x00 : 0xFF;
 		}
-}
-
-RGBA safe_state (int row, int col)
-{
-	while (row < 0) row += N;
-	while (col < 0) col += N;
-	row %= N;
-	col %= N;
-	return texdata [row] [col];
-}
-
-void step_life ()
-{
-	for (int row = 0; row < N; ++row)
-		for (int col = 0; col < N; ++col)
-		{
-			std::uint16_t rweight = 0;
-			std::uint16_t gweight = 0;
-			std::uint16_t bweight = 0;
-
-			auto do_weight = [&] (int row, int col) {
-				auto state = safe_state (row, col);
-				if (state.red) ++rweight;
-				if (state.green) ++gweight;
-				if (state.blue) ++bweight;
-			};
-			do_weight (row - 1, col - 1);
-			do_weight (row - 1, col);
-			do_weight (row - 1, col + 1);
-			do_weight (row,     col - 1);
-			do_weight (row,     col + 1);
-			do_weight (row + 1, col - 1);
-			do_weight (row + 1, col);
-			do_weight (row + 1, col + 1);
-
-			auto do_update = [&] (std::uint8_t (RGBA::*color), std::uint16_t weight) {
-				if (texdata [row] [col].*color)
-				    newtexdata [row] [col].*color = (weight == 2 || weight == 3) ? 0xFF : 0x00;
-				else
-				    newtexdata [row] [col].*color = (weight == 3) ? 0xFF : 0x00;
-			};
-			do_update (&RGBA::red, rweight);
-			do_update (&RGBA::green, gweight);
-			do_update (&RGBA::blue, bweight);
-		}
-	memcpy (texdata, newtexdata, sizeof (texdata));
 }
 
 void hello_texture (GLFWwindow* window)
@@ -217,16 +158,19 @@ void hello_texture (GLFWwindow* window)
 	::glUniform1i (texmap, 0);
 
 	init_life ();
+	RGB (*current_state) [N] [N] = &lifestate [0];
+	RGB (*next_state)    [N] [N] = &lifestate [1];
 
 	while (!::glfwWindowShouldClose (window))
 	{
 		auto time = std::chrono::steady_clock::now ();
-		::glTexImage2D (GL_TEXTURE_2D, 0, GL_RGBA, N, N, 0, GL_RGBA, GL_UNSIGNED_BYTE, texdata);
+		::glTexImage2D (GL_TEXTURE_2D, 0, GL_RGB, N, N, 0, GL_RGB, GL_UNSIGNED_BYTE, current_state);
 		::glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		::glDrawArrays (GL_TRIANGLE_FAN, 0, 4);
 		::glfwPollEvents ();
 		::glfwSwapBuffers (window);
-		step_life ();
+		step_life (*next_state, *current_state);
+		std::swap (next_state, current_state);
 		std::this_thread::sleep_until (time + std::chrono::duration <int, std::ratio <1, 60>> (1));
 	}
 }
